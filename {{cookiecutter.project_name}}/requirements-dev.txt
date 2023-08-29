@@ -1,0 +1,5 @@
+pytest
+invoke
+cookiecutter
+black
+git+https://github.com/bjahnke/utility-invoke-tasks.git
