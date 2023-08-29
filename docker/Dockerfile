@@ -23,4 +23,4 @@ COPY . /app
 ENV PYTHONPATH "${PYTHONPATH}:/app"
 
 # Set the command to run when the container starts
-CMD [ "python3", "src/{{cookiecutter.package_name}}/main.py" ]
+CMD [ "python3", "src/trend_analysis/main.py" ]
