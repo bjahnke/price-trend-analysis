@@ -1,2 +1,4 @@
 pandas
 flask
+SQLAlchemy
+git+https://github.com/bjahnke/blue_bird_pms.git
