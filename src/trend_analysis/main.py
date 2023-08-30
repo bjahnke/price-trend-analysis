@@ -1,5 +1,5 @@
 from flask import Flask
-
+import src.trend_analysis.scanner_engine
 
 app = Flask(__name__)
 
@@ -10,6 +10,7 @@ def handle_request():
     This is the main function that will be called by the cloud function.
     :return:
     """
+    src.trend_analysis.scanner_engine.main(multiprocess=False)
     return 'Service executed with no errors'
 
 
