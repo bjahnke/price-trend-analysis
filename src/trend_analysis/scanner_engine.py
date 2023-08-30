@@ -6,6 +6,8 @@ import src.floor_ceiling_regime
 import regime
 import numpy as np
 
+import env
+
 
 def regime_ranges(df, rg_col: str):
     """
@@ -251,15 +253,11 @@ def main(multiprocess: bool = False):
         },
     )
     # get symbols from db
-    engine = create_engine(connection_string, echo=True)
+    engine = create_engine(env.NEON_DB_CONSTR, echo=True)
     symbols = pd.read_sql('SELECT symbol FROM stock_data', engine)
-    # engine.execute('DROP TABLE IF EXISTS peak')
-    # engine.execute('DROP TABLE IF EXISTS enhanced_price')
-    # engine.execute('DROP TABLE IF EXISTS regime')
-    # data.symbol to list of unique symbols
     symbols = symbols.symbol.unique().tolist()
     if multiprocess:
-        results = init_multiprocess(regime_scanner_mp, symbols, connection_string, *trend_args)
+        results = init_multiprocess(regime_scanner_mp, symbols, env.NEON_DB_CONSTR, *trend_args)
         peak_list = []
         regime_list = []
         enhanced_price_list = []
@@ -268,12 +266,15 @@ def main(multiprocess: bool = False):
             regime_list += [regime_table]
             enhanced_price_list += [enhanced_price_data_table]
 
-        pd.concat(peak_list).reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False)
-        pd.concat(regime_list).reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False)
-        pd.concat(enhanced_price_list).reset_index(drop=True).to_sql('enhanced_price', engine,
-                                                                            if_exists='replace', index=False)
+        peak_table = pd.concat(peak_list).reset_index(drop=True)
+        regime_table = pd.concat(regime_list).reset_index(drop=True)
+        enhanced_price_data_table = pd.concat(enhanced_price_list).reset_index(drop=True)
     else:
-        results = new_regime_scanner(symbols, connection_string, *trend_args)
+        peak_table, regime_table, enhanced_price_data_table, error = new_regime_scanner(symbols, env.NEON_DB_CONSTR, *trend_args)
+
+    peak_table.reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False)
+    regime_table.reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False)
+    enhanced_price_data_table.reset_index(drop=True).to_sql('enhanced_price', engine, if_exists='replace', index=False)
 
 
 def regime_scanner_mp(args):
