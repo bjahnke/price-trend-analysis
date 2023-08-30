@@ -13,7 +13,5 @@ def handle_request():
     return 'Service executed with no errors'
 
 
-
 if __name__ == '__main__':
-    main(multiprocess=True)
     app.run(host='0.0.0.0', port=8080)

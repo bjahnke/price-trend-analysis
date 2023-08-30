@@ -174,7 +174,7 @@ def calculate_trend_data(
     error = None
     regimes_table = pd.DataFrame()
     try:
-        data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data, abs_price_data=pd.DataFrame())
+        data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data)
     except (regime.NotEnoughDataError, src.floor_ceiling_regime.NoEntriesError, KeyError) as e:
         data_tables = src.floor_ceiling_regime.FcStrategyTables(pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
         error = (symbol, type(e))
@@ -280,3 +280,7 @@ def main(multiprocess: bool = False):
 def regime_scanner_mp(args):
     """wrapper for multiprocess usage"""
     return new_regime_scanner(*args)
+
+
+if __name__ == '__main__':
+    main(multiprocess=False)
