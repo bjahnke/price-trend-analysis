@@ -11,11 +11,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y libpq-dev
 
 # Copy the rest of the application code to the working directory
-COPY requirements.txt ./
+COPY requirements-docker.txt ./
+
+# make .ssh/known_hosts
+RUN mkdir -p ~/.ssh && touch ~/.ssh/known_hosts
+RUN ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 # Install the dependencies
-RUN pip install -r requirements.txt
-
+RUN --mount=type=ssh,id=github_ssh_key pip install git+ssh://git@github.com/bjahnke/blue_bird_pms.git
+RUN pip install -r requirements-docker.txt
 # Copy the rest of the application code to the working directory
 COPY . /app
 

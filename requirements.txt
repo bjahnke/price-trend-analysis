@@ -3,4 +3,4 @@ flask
 SQLAlchemy
 python-dotenv
 psycopg2-binary
-git+https://github.com/bjahnke/blue_bird_pms.git
+git+ssh://git@github.com/bjahnke/blue_bird_pms.git

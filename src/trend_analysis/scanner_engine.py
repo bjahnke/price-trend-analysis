@@ -3,7 +3,7 @@ import pandas as pd
 import multiprocessing as mp
 import typing as t
 import src.floor_ceiling_regime
-import regime
+import src.regime as regime
 import numpy as np
 
 import env
@@ -84,7 +84,7 @@ def regime_breakout(df, _h, _l, window):
 
     hl = np.where(df[_h] == df[_h].rolling(window).max(), 1,
                   np.where(df[_l] == df[_l].rolling(window).min(), -1, np.nan))
-    roll_hl = pd.Series(index=df.index, data=hl).fillna(method='ffill')
+    roll_hl = pd.Series(index=df.index, data=hl).ffill()
     return roll_hl
 
 
@@ -283,4 +283,4 @@ def regime_scanner_mp(args):
 
 
 if __name__ == '__main__':
-    main(multiprocess=False)
+    main(multiprocess=True)

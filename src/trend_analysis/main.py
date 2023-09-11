@@ -11,6 +11,7 @@ def handle_request():
     :return:
     """
     src.trend_analysis.scanner_engine.main(multiprocess=False)
+    print('Service executed with no errors')
     return 'Service executed with no errors'
 
 
