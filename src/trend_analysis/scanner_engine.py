@@ -201,11 +201,12 @@ def new_regime_scanner(symbols, conn_str, sma_kwargs, breakout_kwargs, turtle_kw
     enhanced_price_data_tables = []
 
     for i, symbol in enumerate(symbols):
-        data = pd.read_sql(f''
-                           f'SELECT * ' 
-                           f'FROM stock_data '
-                           f'WHERE symbol = \'{symbol}\' '
-                           f'order by stock_data.bar_number asc', engine)
+        data = pd.read_sql(
+           f'SELECT * ' 
+           f'FROM stock_data '
+           f'WHERE symbol = \'{symbol}\' '
+           f'order by stock_data.bar_number asc', engine
+        )
         if data.empty:
             print(f'No data for {symbol}')
             continue
@@ -233,9 +234,10 @@ def new_regime_scanner(symbols, conn_str, sma_kwargs, breakout_kwargs, turtle_kw
     return pd.concat(peak_tables).reset_index(drop=True), pd.concat(regime_tables).reset_index(drop=True), pd.concat(enhanced_price_data_tables).reset_index(drop=True), errors
 
 
-def main(multiprocess: bool = False):
+def main(multiprocess: bool = False, echo: bool = False):
     """
     load price data from db, scan for regimes, save results to db
+    :param echo: output sql queries to console
     :param multiprocess:
     :return:
     """
@@ -253,7 +255,7 @@ def main(multiprocess: bool = False):
         },
     )
     # get symbols from db
-    engine = create_engine(env.NEON_DB_CONSTR, echo=True)
+    engine = create_engine(env.NEON_DB_CONSTR, echo=echo)
     symbols = pd.read_sql('SELECT symbol FROM stock_data', engine)
     symbols = symbols.symbol.unique().tolist()
     if multiprocess:
