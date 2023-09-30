@@ -102,7 +102,15 @@ def turtle_trader(df, _h, _l, slow, fast):
     return turtle
 
 
-def init_trend_table(price_data, sma_kwargs, breakout_kwargs, turtle_kwargs):
+def init_trend_table(
+        price_data,
+        sma_kwargs,
+        breakout_kwargs,
+        turtle_kwargs,
+        _c,
+        _h,
+        _l
+):
     """
     #### init_trend_table(price_data, sma_kwargs, breakout_kwargs, turtle_kwargs) ####
     initialize trend table with sma, breakout, turtle
@@ -112,9 +120,6 @@ def init_trend_table(price_data, sma_kwargs, breakout_kwargs, turtle_kwargs):
     :param turtle_kwargs:
     :return:
     """
-    _c = 'close'
-    _h = 'high'
-    _l = 'low'
     # 'sma' + str(_c)[:1] + str(sma_kwargs['st']) + str(sma_kwargs['lt'])
     data = price_data.copy()
     data['rg'] = regime_sma(price_data, _c, sma_kwargs['st'], sma_kwargs['lt'])
@@ -180,7 +185,15 @@ def calculate_trend_data(
         error = (symbol, type(e))
     else:
         data_tables = format_tables(data_tables, symbol, is_relative=is_relative)
-        regimes_table = init_trend_table(data_tables.enhanced_price_data, sma_kwargs, breakout_kwargs, turtle_kwargs)
+        regimes_table = init_trend_table(
+            data_tables.enhanced_price_data,
+            sma_kwargs,
+            breakout_kwargs,
+            turtle_kwargs,
+            'close',
+            'close',
+            'close'
+        )
 
     return data_tables, regimes_table, error
 
@@ -201,18 +214,17 @@ def new_regime_scanner(symbols, conn_str, sma_kwargs, breakout_kwargs, turtle_kw
     enhanced_price_data_tables = []
 
     for i, symbol in enumerate(symbols):
-        data = pd.read_sql(
+        price_data = pd.read_sql(
            f'SELECT * ' 
            f'FROM stock_data '
            f'WHERE symbol = \'{symbol}\' '
            f'order by stock_data.bar_number asc', engine
         )
-        if data.empty:
+        if price_data.empty:
             print(f'No data for {symbol}')
             continue
         # print symbol and timestamp to track progress
         print(f'{i}.) {symbol} {pd.Timestamp.now()}')
-        price_data = data.loc[data.symbol == symbol]
 
         rel_tables, rel_regimes_table, rel_error = calculate_trend_data(symbol, price_data, is_relative=True, sma_kwargs=sma_kwargs, breakout_kwargs=breakout_kwargs, turtle_kwargs=turtle_kwargs)
         abs_tables, abs_regimes_table, abs_error = calculate_trend_data(symbol, price_data, is_relative=False, sma_kwargs=sma_kwargs, breakout_kwargs=breakout_kwargs, turtle_kwargs=turtle_kwargs)

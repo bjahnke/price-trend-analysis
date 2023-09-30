@@ -13,7 +13,7 @@ def dockerbuild(c):
     image_name = get_env_var('IMAGE_NAME')
     subprocess.run(
         f"docker build --ssh github_ssh_key=./id_rsa "
-        f"-t {image_name} -f docker/Dockerfile .",
+        f"-t {image_name} -f docker/Dockerfile . --no-cache",
         shell=True
     )
 
