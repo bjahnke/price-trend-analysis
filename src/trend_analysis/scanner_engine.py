@@ -135,31 +135,27 @@ def init_trend_table(
     tt_ranges['type'] = 'tt'
     # create dataframe with sma, tt, bo as columns
     trend_table = pd.concat([sma_ranges, bo_ranges, tt_ranges])
-    trend_table['symbol'] = price_data['symbol'].iloc[0]
-    trend_table['is_relative'] = price_data['is_relative'].iloc[0]
+    trend_table['stock_id'] = price_data['stock_id'].iloc[0]
     return trend_table
 
 
-def format_tables(tables: src.floor_ceiling_regime.FcStrategyTables, symbol, is_relative) -> src.floor_ceiling_regime.FcStrategyTables:
+def format_tables(tables: src.floor_ceiling_regime.FcStrategyTables, stock_id) -> src.floor_ceiling_regime.FcStrategyTables:
     """
     helper for formating data tables for database
     :param tables:
-    :param symbol:
+    :param stock_id:
     :param is_relative:
     :return:
     """
-    tables.peak_table['symbol'] = symbol
-    tables.peak_table['is_relative'] = is_relative
-    tables.enhanced_price_data['symbol'] = symbol
-    tables.enhanced_price_data['is_relative'] = is_relative
-    tables.regime_table['symbol'] = symbol
-    tables.regime_table['is_relative'] = is_relative
+    tables.peak_table['stock_id'] = stock_id
+    tables.enhanced_price_data['stock_id'] = stock_id
+    tables.regime_table['stock_id'] = stock_id
     tables.regime_table['type'] = 'fc'
     return tables
 
 
 def calculate_trend_data(
-        symbol: str, price_data: pd.DataFrame, is_relative: bool, sma_kwargs, breakout_kwargs, turtle_kwargs
+        stock_id: str, price_data: pd.DataFrame, sma_kwargs, breakout_kwargs, turtle_kwargs
 ) -> t.Tuple[
         src.floor_ceiling_regime.FcStrategyTables,
         pd.DataFrame,
@@ -167,24 +163,23 @@ def calculate_trend_data(
     ]:
     """
     Helper function to reuse the trend calculation run process for relative and absolute data
-    :param symbol:
+    :param stock_id:
     :param price_data:
-    :param is_relative:
     :param sma_kwargs:
     :param breakout_kwargs:
     :param turtle_kwargs:
     :return:
     """
-    price_data = price_data.loc[price_data.is_relative == is_relative].reset_index(drop=True)
+    price_data = price_data.reset_index(drop=True)
     error = None
     regimes_table = pd.DataFrame()
     try:
         data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data)
     except (regime.NotEnoughDataError, src.floor_ceiling_regime.NoEntriesError, KeyError) as e:
         data_tables = src.floor_ceiling_regime.FcStrategyTables(pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
-        error = (symbol, type(e))
+        error = (stock_id, type(e))
     else:
-        data_tables = format_tables(data_tables, symbol, is_relative=is_relative)
+        data_tables = format_tables(data_tables, stock_id)
         regimes_table = init_trend_table(
             data_tables.enhanced_price_data,
             sma_kwargs,
@@ -198,52 +193,37 @@ def calculate_trend_data(
     return data_tables, regimes_table, error
 
 
-def new_regime_scanner(symbols, conn_str, sma_kwargs, breakout_kwargs, turtle_kwargs):
+def new_regime_scanner(symbol_ids, conn_str, sma_kwargs, breakout_kwargs, turtle_kwargs):
     """
     load price data from db, scan for regimes, save results to db
     :return:
     """
-    # INPUTS START
-
-
-    # INPUTS END
     errors = []
     engine = create_engine(conn_str)
     peak_tables = []
     regime_tables = []
-    enhanced_price_data_tables = []
 
-    for i, symbol in enumerate(symbols):
-        price_data = pd.read_sql(
-           f'SELECT * ' 
-           f'FROM stock_data '
-           f'WHERE symbol = \'{symbol}\' '
-           f'order by stock_data.bar_number asc', engine
-        )
+    for i, symbol_id in enumerate(symbol_ids):
+        symbol_query = f'SELECT sd.* FROM stock_data sd WHERE sd.stock_id = {symbol_id}'
+        price_data = pd.read_sql(symbol_query, engine)
         if price_data.empty:
-            print(f'No data for {symbol}')
+            print(f'No data for id {symbol_id}')
             continue
-        # print symbol and timestamp to track progress
-        print(f'{i}.) {symbol} {pd.Timestamp.now()}')
 
-        rel_tables, rel_regimes_table, rel_error = calculate_trend_data(symbol, price_data, is_relative=True, sma_kwargs=sma_kwargs, breakout_kwargs=breakout_kwargs, turtle_kwargs=turtle_kwargs)
-        abs_tables, abs_regimes_table, abs_error = calculate_trend_data(symbol, price_data, is_relative=False, sma_kwargs=sma_kwargs, breakout_kwargs=breakout_kwargs, turtle_kwargs=turtle_kwargs)
+        # # print symbol and timestamp to track progress
+        # print(f'{i}.) {symbol} {pd.Timestamp.now()}')
 
-        if rel_error:
-            errors.append(rel_error)
-        if abs_error:
-            errors.append(abs_error)
+        tables, regime_table, error = calculate_trend_data(
+            symbol_id, price_data, sma_kwargs=sma_kwargs, breakout_kwargs=breakout_kwargs, turtle_kwargs=turtle_kwargs
+        )
 
-        peak_tables.extend([rel_tables.peak_table, abs_tables.peak_table])
-        regime_tables.extend([
-            rel_tables.regime_table,
-            abs_tables.regime_table,
-            rel_regimes_table,
-            abs_regimes_table
-        ])
-        enhanced_price_data_tables.extend([rel_tables.enhanced_price_data, abs_tables.enhanced_price_data])
+        if error:
+            errors.append(error)
 
-    return pd.concat(peak_tables).reset_index(drop=True), pd.concat(regime_tables).reset_index(drop=True), pd.concat(enhanced_price_data_tables).reset_index(drop=True), errors
+        peak_tables.append(tables.peak_table)
+        regime_tables.extend([tables.regime_table, regime_table])
+
+    return pd.concat(peak_tables).reset_index(drop=True), pd.concat(regime_tables).reset_index(drop=True), errors
 
 
 def main(multiprocess: bool = False, echo: bool = False):
@@ -268,27 +248,24 @@ def main(multiprocess: bool = False, echo: bool = False):
     )
     # get symbols from db
     engine = create_engine(env.NEON_DB_CONSTR, echo=echo)
-    symbols = pd.read_sql('SELECT symbol FROM stock_data', engine)
-    symbols = symbols.symbol.unique().tolist()
+    symbol_ids = pd.read_sql('SELECT stock.id FROM stock', engine).tolist()
     if multiprocess:
-        results = init_multiprocess(regime_scanner_mp, symbols, env.NEON_DB_CONSTR, *trend_args)
+        results = init_multiprocess(regime_scanner_mp, symbol_ids, env.NEON_DB_CONSTR, *trend_args)
         peak_list = []
         regime_list = []
         enhanced_price_list = []
-        for peak_table, regime_table, enhanced_price_data_table, error in results:
+        for peak_table, regime_table, error in results:
             peak_list += [peak_table]
             regime_list += [regime_table]
-            enhanced_price_list += [enhanced_price_data_table]
 
         peak_table = pd.concat(peak_list).reset_index(drop=True)
         regime_table = pd.concat(regime_list).reset_index(drop=True)
         enhanced_price_data_table = pd.concat(enhanced_price_list).reset_index(drop=True)
     else:
-        peak_table, regime_table, enhanced_price_data_table, error = new_regime_scanner(symbols, env.NEON_DB_CONSTR, *trend_args)
+        peak_table, regime_table, error = new_regime_scanner(symbol_ids, env.NEON_DB_CONSTR, *trend_args)
 
-    peak_table.reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False)
-    regime_table.reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False)
-    enhanced_price_data_table.reset_index(drop=True).to_sql('enhanced_price', engine, if_exists='replace', index=False)
+    peak_table.reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False, chunksize=10000)
+    regime_table.reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False, chunksize=10000)
 
 
 def regime_scanner_mp(args):
