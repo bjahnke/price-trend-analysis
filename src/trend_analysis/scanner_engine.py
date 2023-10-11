@@ -248,19 +248,17 @@ def main(multiprocess: bool = False, echo: bool = False):
     )
     # get symbols from db
     engine = create_engine(env.NEON_DB_CONSTR, echo=echo)
-    symbol_ids = pd.read_sql('SELECT stock.id FROM stock', engine).tolist()
+    symbol_ids = pd.read_sql('SELECT stock.id FROM stock', engine)['id'].tolist()
     if multiprocess:
         results = init_multiprocess(regime_scanner_mp, symbol_ids, env.NEON_DB_CONSTR, *trend_args)
         peak_list = []
         regime_list = []
-        enhanced_price_list = []
         for peak_table, regime_table, error in results:
             peak_list += [peak_table]
             regime_list += [regime_table]
 
         peak_table = pd.concat(peak_list).reset_index(drop=True)
         regime_table = pd.concat(regime_list).reset_index(drop=True)
-        enhanced_price_data_table = pd.concat(enhanced_price_list).reset_index(drop=True)
     else:
         peak_table, regime_table, error = new_regime_scanner(symbol_ids, env.NEON_DB_CONSTR, *trend_args)
 
