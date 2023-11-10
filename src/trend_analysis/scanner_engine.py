@@ -151,6 +151,7 @@ def format_tables(tables: src.floor_ceiling_regime.FcStrategyTables, stock_id) -
     tables.enhanced_price_data['stock_id'] = stock_id
     tables.regime_table['stock_id'] = stock_id
     tables.regime_table['type'] = 'fc'
+    tables.floor_ceiling_table['stock_id'] = stock_id
     return tables
 
 
@@ -202,6 +203,7 @@ def new_regime_scanner(symbol_ids, conn_str, sma_kwargs, breakout_kwargs, turtle
     engine = create_engine(conn_str)
     peak_tables = []
     regime_tables = []
+    floor_ceiling_tables = []
 
     for i, symbol_id in enumerate(symbol_ids):
         symbol_query = f'SELECT sd.* FROM stock_data sd WHERE sd.stock_id = {symbol_id}'
@@ -222,8 +224,14 @@ def new_regime_scanner(symbol_ids, conn_str, sma_kwargs, breakout_kwargs, turtle
 
         peak_tables.append(tables.peak_table)
         regime_tables.extend([tables.regime_table, regime_table])
+        floor_ceiling_tables.append(tables.floor_ceiling_table)
 
-    return pd.concat(peak_tables).reset_index(drop=True), pd.concat(regime_tables).reset_index(drop=True), errors
+    return (
+        pd.concat(peak_tables).reset_index(drop=True),
+        pd.concat(regime_tables).reset_index(drop=True),
+        pd.concat(floor_ceiling_tables).reset_index(drop=True),
+        errors,
+    )
 
 
 def main(multiprocess: bool = False, echo: bool = False):
@@ -253,17 +261,21 @@ def main(multiprocess: bool = False, echo: bool = False):
         results = init_multiprocess(regime_scanner_mp, symbol_ids, env.NEON_DB_CONSTR, *trend_args)
         peak_list = []
         regime_list = []
-        for peak_table, regime_table, error in results:
+        fc_data_list = []
+        for peak_table, regime_table, fc_data, error in results:
             peak_list += [peak_table]
             regime_list += [regime_table]
+            fc_data_list += [fc_data]
 
         peak_table = pd.concat(peak_list).reset_index(drop=True)
         regime_table = pd.concat(regime_list).reset_index(drop=True)
+        fc_table = pd.concat(fc_data_list).reset_index(drop=True)
     else:
-        peak_table, regime_table, error = new_regime_scanner(symbol_ids, env.NEON_DB_CONSTR, *trend_args)
+        peak_table, regime_table, fc_table, error = new_regime_scanner(symbol_ids, env.NEON_DB_CONSTR, *trend_args)
 
     peak_table.reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False, chunksize=10000)
     regime_table.reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False, chunksize=10000)
+    fc_table.reset_index(drop=True).to_sql('floor_ceiling', engine, if_exists='replace', index=False, chunksize=10000)
 
 
 def regime_scanner_mp(args):
