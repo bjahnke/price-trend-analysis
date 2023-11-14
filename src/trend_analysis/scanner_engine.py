@@ -177,7 +177,9 @@ def calculate_trend_data(
     try:
         data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data)
     except (regime.NotEnoughDataError, src.floor_ceiling_regime.NoEntriesError, KeyError) as e:
-        data_tables = src.floor_ceiling_regime.FcStrategyTables(pd.DataFrame(), pd.DataFrame(), pd.DataFrame())
+        data_tables = src.floor_ceiling_regime.FcStrategyTables(
+            pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        )
         error = (stock_id, type(e))
     else:
         data_tables = format_tables(data_tables, stock_id)
