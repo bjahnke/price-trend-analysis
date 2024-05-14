@@ -20,6 +20,7 @@ env1/
 env2/
 .env
 env.yaml
+id_rsa
 
 # IDE specific files
 .idea/
