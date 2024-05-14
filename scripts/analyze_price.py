@@ -9,7 +9,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 neon_db_url = os.environ.get("NEON_DB_CONSTR")
-neon_db_url = os.environ.get("NEON_DB_CONSTR")
 
 engine = create_engine(neon_db_url)
 
@@ -25,4 +24,5 @@ if __name__ == '__main__':
     src.trend_analysis.scanner_engine.main(multiprocess=True)
     with Session(engine) as _session:
         entry_table = StockRepository(_session).get_entry_table(risk=500)
+        # optimal chunch size per stack overflow
         entry_table.to_sql('entry', engine, if_exists='replace', index=False, chunksize=10000)
