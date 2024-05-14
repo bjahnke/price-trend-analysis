@@ -19,6 +19,7 @@ env.bak/
 env1/
 env2/
 .env
+env.yaml
 
 # IDE specific files
 .idea/
@@ -34,3 +35,4 @@ env2/
 # OS generated files
 .DS_Store
 Thumbs.db
+
