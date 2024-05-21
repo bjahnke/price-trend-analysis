@@ -175,8 +175,8 @@ def calculate_trend_data(
     error = None
     regimes_table = pd.DataFrame()
     try:
-        data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data)
-    except (regime.NotEnoughDataError, src.floor_ceiling_regime.NoEntriesError, KeyError) as e:
+        data_tables = src.floor_ceiling_regime.fc_scale_strategy_live(price_data=price_data, find_retest_swing=False)
+    except (regime.NotEnoughDataError, src.floor_ceiling_regime.NoEntriesError) as e:
         data_tables = src.floor_ceiling_regime.FcStrategyTables(
             pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
         )
@@ -208,7 +208,10 @@ def new_regime_scanner(symbol_ids, conn_str, sma_kwargs, breakout_kwargs, turtle
     floor_ceiling_tables = []
 
     for i, symbol_id in enumerate(symbol_ids):
-        symbol_query = f'SELECT sd.* FROM stock_data sd WHERE sd.stock_id = {symbol_id}'
+        symbol_query = (f'SELECT sd.* '
+                        f'FROM stock_data sd '
+                        f'WHERE sd.stock_id = {symbol_id} '
+                        f'ORDER BY sd.bar_number')
         price_data = pd.read_sql(symbol_query, engine)
         if price_data.empty:
             print(f'No data for id {symbol_id}')
