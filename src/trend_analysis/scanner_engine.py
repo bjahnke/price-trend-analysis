@@ -236,7 +236,7 @@ def new_regime_scanner(symbol_ids, conn_str, sma_kwargs, breakout_kwargs, turtle
     )
 
 
-def main(multiprocess: bool = False, echo: bool = False):
+def main(db_connect, multiprocess: bool = False, echo: bool = False, ):
     """
     load price data from db, scan for regimes, save results to db
     :param echo: output sql queries to console
@@ -257,10 +257,10 @@ def main(multiprocess: bool = False, echo: bool = False):
         },
     )
     # get symbols from db
-    engine = create_engine(env.NEON_DB_CONSTR, echo=echo)
+    engine = create_engine(db_connect, echo=echo)
     symbol_ids = pd.read_sql('SELECT stock.id FROM stock', engine)['id'].tolist()
     if multiprocess:
-        results = init_multiprocess(regime_scanner_mp, symbol_ids, env.NEON_DB_CONSTR, *trend_args)
+        results = init_multiprocess(regime_scanner_mp, symbol_ids, db_connect, *trend_args)
         peak_list = []
         regime_list = []
         fc_data_list = []
@@ -273,7 +273,7 @@ def main(multiprocess: bool = False, echo: bool = False):
         regime_table = pd.concat(regime_list).reset_index(drop=True)
         fc_table = pd.concat(fc_data_list).reset_index(drop=True)
     else:
-        peak_table, regime_table, fc_table, error = new_regime_scanner(symbol_ids, env.NEON_DB_CONSTR, *trend_args)
+        peak_table, regime_table, fc_table, error = new_regime_scanner(symbol_ids, db_connect, *trend_args)
 
     peak_table.reset_index(drop=True).to_sql('peak', engine, if_exists='replace', index=False, chunksize=10000)
     regime_table.reset_index(drop=True).to_sql('regime', engine, if_exists='replace', index=False, chunksize=10000)
